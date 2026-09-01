@@ -1,0 +1,10 @@
+node_modules
+coverage
+
+# skills/ ships the shipped skill's exact bytes — SKILL.md's
+# frontmatter (double-quoted metadata values) and the embedded
+# groom_booking fixture must stay byte-identical to their source
+# of truth. Prettier's singleQuote/JSON-in-markdown formatting
+# would rewrite both; the vitest checks in src/ are this
+# directory's formatter instead.
+skills/
