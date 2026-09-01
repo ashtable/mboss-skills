@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -8,12 +9,11 @@ import { parseSkill } from './skill.js';
 const SKILL_PATH = fileURLToPath(
   new URL('../skills/mboss/SKILL.md', import.meta.url),
 );
-const TOOLS_REFERENCE_PATH = fileURLToPath(
-  new URL('../skills/mboss/references/tools.md', import.meta.url),
+const REFERENCES_DIR = fileURLToPath(
+  new URL('../skills/mboss/references/', import.meta.url),
 );
-const IR_EXAMPLES_PATH = fileURLToPath(
-  new URL('../skills/mboss/references/ir-examples.md', import.meta.url),
-);
+const TOOLS_REFERENCE_PATH = join(REFERENCES_DIR, 'tools.md');
+const IR_EXAMPLES_PATH = join(REFERENCES_DIR, 'ir-examples.md');
 
 // The eleven tools the mboss MCP server registers, in
 // the order its own registry lists them (workflow
@@ -87,6 +87,45 @@ describe('the shipped skill', () => {
   it('points to the reference files', () => {
     expect(body).toContain('references/tools.md');
     expect(body).toContain('references/ir-examples.md');
+  });
+});
+
+/**
+ * Every reference has to be reachable by following
+ * links from SKILL.md, or an agent never opens it.
+ *
+ * SKILL.md is byte-locked to the design document
+ * that specifies it, so a new reference cannot be
+ * linked from there — it is linked from one of the
+ * two SKILL.md already names, and this is what
+ * says that hop exists. A file nobody links is a
+ * file nobody reads, and worse than no file at all
+ * when it is there to correct something.
+ */
+describe('the references', () => {
+  const files = readdirSync(REFERENCES_DIR).sort();
+
+  function linksIn(path: string): string[] {
+    const text = readFileSync(path, 'utf8');
+
+    return [...text.matchAll(/references\/([a-z-]+\.md)/g)].map(
+      (match) => match[1] as string,
+    );
+  }
+
+  it('are every one of them reachable from SKILL.md', () => {
+    const reached = new Set<string>();
+    const pending = linksIn(SKILL_PATH);
+
+    while (pending.length > 0) {
+      const name = pending.pop() as string;
+      if (reached.has(name) || !files.includes(name)) continue;
+
+      reached.add(name);
+      pending.push(...linksIn(join(REFERENCES_DIR, name)));
+    }
+
+    expect([...reached].sort()).toEqual(files);
   });
 });
 
