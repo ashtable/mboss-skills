@@ -103,6 +103,25 @@ describe('the shipped skill', () => {
     expect(body).toContain("commits outside the run's transaction");
   });
 
+  // The guard rule looks at whether a consumer
+  // declares an `in` at all, never at what that
+  // `in` is, so no type is a way past a guard. This
+  // body is loaded every time, and an agent that
+  // reads otherwise here builds a document the
+  // apply refuses — and finds that out from a
+  // reference it opens only once something has
+  // already failed.
+  it('says the same guard is the only way past a guard', () => {
+    // The claim runs over more than one line, and
+    // where it wraps is not what this is about.
+    const prose = body.replaceAll(/\s+/g, ' ');
+
+    expect(prose).toContain('must carry the **same** guard');
+    expect(prose).toContain(
+      'an input type that tolerates `undefined` does not satisfy it',
+    );
+  });
+
   it('points to the reference files', () => {
     expect(body).toContain('references/tools.md');
     expect(body).toContain('references/ir-examples.md');

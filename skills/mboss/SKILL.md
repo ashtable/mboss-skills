@@ -62,8 +62,10 @@ You propose; mBoss validates; the human approves.
   client scoped to that block's transaction, which is what joins its writes to the run's. A
   handler that builds a `PrismaClient` of its own commits outside the run's transaction, and
   nothing catches that at build time.
-- `guard` skips a node when false; downstream inputs must tolerate `undefined` or share the
-  guard.
+- `guard` skips a node when false, so the node produces nothing that run. Anything downstream
+  that reads its output must carry the **same** guard and sit next to it in the chain: an
+  input type that tolerates `undefined` does not satisfy it, and dropping the input silences
+  the check and fails the build instead. See references/conventions.md.
 - Signed links (forms, artifacts) are minted by the runtime — never construct URLs yourself.
 
 See references/tools.md for the full tool reference and references/ir-examples.md for worked
