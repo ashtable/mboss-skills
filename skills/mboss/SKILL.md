@@ -27,8 +27,10 @@ You propose; mBoss validates; the human approves.
 
 ## The four rules
 
-1. **Semantic graphs, never pixel coordinates.** The IR has no coordinate fields; layout is
-   deterministic and owned by mBoss. Describe nodes, edges, handlers, and config only.
+1. **Semantic graphs; positions belong to people.** A node may carry a `position` a person
+   set on the canvas. Never write one, never invent one: a spec that omits positions keeps
+   the ones on disk, and an Arrange in the editor recomputes them all. Describe nodes,
+   edges, handlers, and config.
 2. **MCP tools, never raw graph files.** Do not read or write `.mboss/workflows/*.workflow.json`
    directly — use `workflow_get` / `workflow_apply_spec`. Direct edits bypass validation and
    revision tracking and will be rejected or clobbered.
@@ -56,6 +58,10 @@ You propose; mBoss validates; the human approves.
 - `transaction` is reserved for writes to the app's own co-located Postgres (exactly-once).
   External side-effects (S3, Weaviate, Twilio Email, HTTP) are `step`/`apiCall` — durable and
   retried, idempotency via upsert/dedupe keys.
+- A `transaction`'s handler must write through `appDb.client`, from `src/app/db.js` — the
+  client scoped to that block's transaction, which is what joins its writes to the run's. A
+  handler that builds a `PrismaClient` of its own commits outside the run's transaction, and
+  nothing catches that at build time.
 - `guard` skips a node when false; downstream inputs must tolerate `undefined` or share the
   guard.
 - Signed links (forms, artifacts) are minted by the runtime — never construct URLs yourself.

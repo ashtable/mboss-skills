@@ -14,6 +14,7 @@ const REFERENCES_DIR = fileURLToPath(
 );
 const TOOLS_REFERENCE_PATH = join(REFERENCES_DIR, 'tools.md');
 const IR_EXAMPLES_PATH = join(REFERENCES_DIR, 'ir-examples.md');
+const CONVENTIONS_PATH = join(REFERENCES_DIR, 'conventions.md');
 
 // The eleven tools the mboss MCP server registers, in
 // the order its own registry lists them (workflow
@@ -78,10 +79,28 @@ describe('the shipped skill', () => {
 
   it('teaches the four rules in its body', () => {
     expect(body).toContain('## The four rules');
-    expect(body).toContain('Semantic graphs, never pixel coordinates.');
+    expect(body).toContain('Semantic graphs; positions belong to people.');
     expect(body).toContain('MCP tools, never raw graph files.');
     expect(body).toContain('Validate (dry-run) before applying.');
     expect(body).toContain('Follow project conventions for code-behind.');
+  });
+
+  // A person's positions are the one thing in the
+  // document an agent can destroy by being helpful,
+  // so rule 1 has to say both halves: leave the ones
+  // on disk alone, and do not make new ones up.
+  it('says who a position belongs to', () => {
+    expect(body).toContain('Never write one, never invent one');
+    expect(body).toContain('a spec that omits positions keeps');
+    expect(body).toContain('an Arrange in the editor recomputes them all');
+  });
+
+  // Nothing at build time catches a handler that
+  // writes around the run's transaction, so the
+  // skill is where an agent finds out.
+  it('names the client a transaction handler writes through', () => {
+    expect(body).toContain('must write through `appDb.client`');
+    expect(body).toContain("commits outside the run's transaction");
   });
 
   it('points to the reference files', () => {
@@ -94,13 +113,12 @@ describe('the shipped skill', () => {
  * Every reference has to be reachable by following
  * links from SKILL.md, or an agent never opens it.
  *
- * SKILL.md is byte-locked to the design document
- * that specifies it, so a new reference cannot be
- * linked from there — it is linked from one of the
- * two SKILL.md already names, and this is what
- * says that hop exists. A file nobody links is a
- * file nobody reads, and worse than no file at all
- * when it is there to correct something.
+ * SKILL.md stays short on purpose and names two of
+ * them, so a third is reached by a hop from one of
+ * those two — and this is what says that hop is
+ * there. A file nobody links is a file nobody
+ * reads, and worse than no file at all when it is
+ * there to correct something.
  */
 describe('the references', () => {
   const files = readdirSync(REFERENCES_DIR).sort();
@@ -155,15 +173,34 @@ describe('references/tools.md', () => {
   });
 });
 
+describe('references/conventions.md', () => {
+  const text = readFileSync(CONVENTIONS_PATH, 'utf8');
+
+  it('says how a decision branch writes its cases', () => {
+    expect(text).toContain('## Decision branches');
+    expect(text).toContain('"when": { "path": "", "op": "eq"');
+    expect(text).toContain('`elsePort` stays unwired');
+  });
+
+  // What the handler may return belongs to the
+  // project's own conventions file, which is what
+  // rule 4 sends an agent to. Naming that file
+  // instead of repeating it is what keeps the two
+  // from drifting apart.
+  it('sends the handler side to the project it belongs to', () => {
+    expect(text).toContain('.mboss/conventions.md');
+    expect(text).not.toContain('Promise<boolean>');
+  });
+});
+
 describe('references/ir-examples.md', () => {
   const text = readFileSync(IR_EXAMPLES_PATH, 'utf8');
+  const documents = [...text.matchAll(/```json\n([\s\S]*?)\n```/g)].map(
+    (match) => match[1]!,
+  );
 
   it('embeds a groom_booking example that parses as a document', () => {
-    const match = text.match(/```json\n([\s\S]*?)\n```/);
-
-    expect(match).not.toBeNull();
-
-    const ir = JSON.parse(match![1]!) as {
+    const ir = JSON.parse(documents[0]!) as {
       name: string;
       nodes: unknown[];
       edges: unknown[];
@@ -172,5 +209,44 @@ describe('references/ir-examples.md', () => {
     expect(ir.name).toBe('groom_booking');
     expect(ir.nodes).toHaveLength(10);
     expect(ir.edges).toHaveLength(11);
+  });
+
+  it('embeds a loop a decision branch closes', () => {
+    const ir = JSON.parse(documents[1]!) as {
+      name: string;
+      nodes: {
+        id: string;
+        kind: string;
+        handler?: { export: string };
+        config: { cases?: { port: string; when: unknown }[] };
+      }[];
+      edges: { from: { node: string; port: string }; back?: boolean }[];
+    };
+
+    expect(ir.name).toBe('slot_retry_abort');
+
+    const decision = ir.nodes.find((node) => node.kind === 'branch')!;
+
+    expect(decision.handler?.export).toBe('tryAgain');
+    expect(decision.config.cases?.map((each) => each.when)).toEqual([
+      { path: '', op: 'eq', value: true },
+      { path: '', op: 'eq', value: false },
+    ]);
+
+    const back = ir.edges.find((edge) => edge.back)!;
+
+    expect(back.from).toEqual({ node: decision.id, port: 'again' });
+  });
+
+  // These are copied out of mboss-core's fixtures by
+  // hand — this repo cannot see them — so the one
+  // thing it can check for itself is that nothing was
+  // dropped or half-pasted on the way over.
+  it('embeds nothing but documents that parse', () => {
+    expect(documents.length).toBeGreaterThan(1);
+
+    for (const document of documents) {
+      expect(() => JSON.parse(document)).not.toThrow();
+    }
   });
 });

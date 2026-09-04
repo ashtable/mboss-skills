@@ -1,9 +1,10 @@
 # Conventions
 
-Why the compiler refuses some documents that validate, and the two
-places its answer differs from what you would guess. Read this when a
+Why the compiler refuses some documents that validate, and the places
+its answer differs from what you would guess. Read this when a
 `workflow_apply_spec` diagnostic or a `project_build` failure does not
-match what you expected.
+match what you expected, and before you draw a branch that runs code of
+yours.
 
 ## Guards and what stays in scope
 
@@ -47,3 +48,35 @@ The zone is fixed rather than read from the machine that runs the build
 on purpose: regenerating a project has to produce the same code on a
 laptop as in CI. Which zone a schedule belongs to is a fact about the
 workflow, so it belongs in the document.
+
+## Decision branches
+
+A `branch` either tests a value the run is already carrying or calls
+code of yours. Give it a `handler` and it is the second kind: the
+function runs as a step of its own, and what it returned is what the
+branch tests — directly, with no field to read off it.
+
+So its cases are written differently from a predicate branch's. Write
+one per answer the code can give, each matching the whole value:
+
+```json
+{ "port": "again", "when": { "path": "", "op": "eq", "value": true } }
+```
+
+The empty `path` names the returned value itself.
+
+`elsePort` stays unwired. Cases that cover every answer leave nothing
+to fall through to, and that arm compiles to a `return` — the right
+thing to do about a value the type said could not happen.
+
+A loop closes on one of the case ports, the same way it closes on a
+predicate branch's: the `back` edge leaves the case that means "go
+round again" and carries the run to the block the loop starts at. See
+`slot_retry_abort` in references/ir-examples.md for the whole shape.
+
+What the handler itself may return is a rule about your code, not about
+the document, so it lives with your code: the project's own
+`.mboss/conventions.md` — the file `mboss://conventions` serves, and the
+one rule 4 sends you to before you write anything in `lib/` — has a
+section on it. Read that one rather than assuming; it is written once
+per project and is the project's from then on.
