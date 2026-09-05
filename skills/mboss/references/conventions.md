@@ -33,6 +33,53 @@ loop or an unguarded block between the two ends the group, and the
 compiler refuses with a message naming both blocks. Move them together,
 or move the work that came between them.
 
+## Transactions and the calls that dial out
+
+A `transaction` runs its handler inside the run's own database
+transaction, so what it writes commits with the checkpoint or not at
+all. A call to another system in there gets none of that: it is not
+checkpointed, and the rollback does not undo it. So validation reports
+one as `V16`, an error — it names the call and the line it is written
+on, fails `project_build`, and refuses the apply with
+`VALIDATION_FAILED`. Move the work to a `step`.
+
+**What is detected.** The global `fetch`, and the calls Node's own
+networking modules use to open a connection: `get` and `request` from
+`http` and `https`, `connect` from `http2` and from `tls`, `connect`
+and `createConnection` from `net`, `createSocket` from `dgram`, and
+the query functions of `dns` and `dns/promises` (`lookup`, the
+`resolve*` family, `reverse`). Both spellings of an import are the
+same module here — `node:https` and `https` are one entry, not two.
+
+The rest of what those modules export is not networking and is not
+detected: `net.isIP` tests a string, `dns.getServers` reads this
+machine's own configuration, and a `createServer` waits to be called
+rather than calling.
+
+**By what a call resolves to, not by what it is called.** The check
+asks the type checker which declaration a call reaches. So a name your
+own module re-exports from `node:https` is found under the specifier
+`./net.js`, and a `fetch` of your own — a local `const`, or a helper
+of that name you imported — resolves to itself and is not reported.
+Nothing is decided from the text of an import specifier or of an
+identifier.
+
+**`appDb.client` writes are fine**, and not by an exception written
+for them: they resolve into your generated Prisma client, which is not
+one of Node's modules. Nothing else an ordinary handler does is caught
+either — `randomUUID`, a read through `node:fs/promises`, or
+`new https.Agent({})`, because building a thing that can talk to a
+machine is not talking to it.
+
+**A call it cannot place says nothing.** A helper of your own that
+itself dials out, an SDK's client like `stripe.charges.create`, a call
+through an `any` — none of them is reported, because a wrong refusal
+greys a legitimate handler out with nothing a person can say back,
+while a miss only leaves the behaviour there was before. What is
+caught is the direct call in the handler's own body, never every call
+underneath it. The convention is the same either way: work that talks
+to another system belongs in a `step`.
+
 ## Schedules and time zones
 
 A `trigger` in `schedule` mode has an optional `timezone`. Leave it

@@ -122,6 +122,41 @@ describe('the shipped skill', () => {
     );
   });
 
+  // A transaction whose handler dials out is
+  // refused now, not merely discouraged, and the
+  // refusal lands on the apply. An agent picking a
+  // kind reads this body and nothing else, so the
+  // rule has to be here or the first it hears of it
+  // is a document that will not save.
+  it('says a handler that dials out is refused a transaction', () => {
+    // The claim runs over more than one line, and
+    // where it wraps is not what this is about.
+    const prose = body.replaceAll(/\s+/g, ' ');
+
+    expect(prose).toContain(
+      'Validation **refuses** a `transaction` whose handler dials out',
+    );
+    expect(prose).toContain(
+      "written in the handler's own body is a `V16` error",
+    );
+    expect(prose).toContain('Work that calls a service is a `step`');
+  });
+
+  // The check reads one body and does not follow
+  // what it calls. An agent told only that calls
+  // out are caught would read a clean validation as
+  // permission to keep a helper's HTTP call inside
+  // a transaction — which is the fault this rule
+  // exists to prevent, arriving with the rule's own
+  // blessing.
+  it('does not let its silence read as permission', () => {
+    const prose = body.replaceAll(/\s+/g, ' ');
+
+    expect(prose).toContain(
+      'silence about a helper of your own is not permission',
+    );
+  });
+
   it('points to the reference files', () => {
     expect(body).toContain('references/tools.md');
     expect(body).toContain('references/ir-examples.md');
@@ -199,6 +234,33 @@ describe('references/conventions.md', () => {
     expect(text).toContain('## Decision branches');
     expect(text).toContain('"when": { "path": "", "op": "eq"');
     expect(text).toContain('`elsePort` stays unwired');
+  });
+
+  // The body says a transaction handler that dials
+  // out is refused; an agent that has to act on
+  // that needs to know which calls are meant, and
+  // that its own database client is not one of
+  // them.
+  it('names the calls that refuse a transaction', () => {
+    // The list runs over more than one line, and
+    // where it wraps is not what this is about.
+    const prose = text.replaceAll(/\s+/g, ' ');
+
+    expect(text).toContain('## Transactions and the calls that dial out');
+    expect(prose).toContain('`get` and `request` from `http` and `https`');
+    expect(text).toContain('`createSocket` from `dgram`');
+    expect(text).toContain('`appDb.client` writes are fine');
+  });
+
+  // Two ways to be wrong about the check, both of
+  // which end in an agent arguing with a refusal or
+  // trusting a silence: it reads what a call
+  // resolves to rather than what it is spelled, and
+  // it says nothing at all about a call it cannot
+  // place.
+  it('says how the check decides, and where it stops', () => {
+    expect(text).toContain('not by what it is called');
+    expect(text).toContain('A call it cannot place says nothing');
   });
 
   // What the handler may return belongs to the
