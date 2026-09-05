@@ -71,3 +71,53 @@ against.
   ]
 }
 ```
+
+## `slot_retry_abort`
+
+The same booking flow, cut down to the shape a decision branch makes.
+`look_again` runs `tryAgain` as a step of its own and tests the boolean
+it answered; the `again` case carries the run back to `find_slot` for up
+to ten rounds, and `onExhausted: "abort"` ends the run rather than book
+a slot nobody accepted. Note that nothing wires the `else` port: the two
+cases cover both answers. Copied verbatim from `mboss-core`'s own
+fixture (`fixtures/ir/slot_retry_abort.workflow.json`), which has a
+compiled-code golden of its own.
+
+```json
+{
+  "$schema": "https://mboss.dev/schemas/workflow-v1.json",
+  "version": 1,
+  "revision": 1,
+  "name": "slot_retry_abort",
+  "title": "Slot retry, aborting",
+  "nodes": [
+    { "id": "booking_requested", "kind": "trigger", "title": "Booking request",
+      "config": { "mode": "event", "topic": "booking.requested",
+        "idempotencyKeyPath": "requestId" },
+      "out": "WebhookEvent" },
+    { "id": "parse_request", "kind": "step", "title": "Parse request",
+      "handler": { "export": "parseRequest" }, "in": "WebhookEvent", "out": "BookingReq",
+      "config": {} },
+    { "id": "find_slot", "kind": "step", "title": "Find open slot",
+      "handler": { "export": "findSlot" }, "in": "BookingReq", "out": "SlotGrid",
+      "config": {} },
+    { "id": "look_again", "kind": "branch", "title": "Look again?", "in": "SlotGrid",
+      "handler": { "export": "tryAgain" },
+      "config": { "cases": [
+        { "port": "again", "when": { "path": "", "op": "eq", "value": true },
+          "maxIterations": 10, "onExhausted": "abort" },
+        { "port": "take_it", "when": { "path": "", "op": "eq", "value": false } } ],
+        "elsePort": "else" } },
+    { "id": "book_appointment", "kind": "step", "title": "Book appointment",
+      "handler": { "export": "bookAppointment" }, "in": "SlotGrid", "out": "Booking",
+      "config": {} }
+  ],
+  "edges": [
+    { "id": "e1", "from": { "node": "booking_requested", "port": "out" }, "to": { "node": "parse_request" }, "type": "WebhookEvent" },
+    { "id": "e2", "from": { "node": "parse_request", "port": "out" }, "to": { "node": "find_slot" }, "type": "BookingReq" },
+    { "id": "e3", "from": { "node": "find_slot", "port": "out" }, "to": { "node": "look_again" }, "type": "SlotGrid" },
+    { "id": "e4", "from": { "node": "look_again", "port": "again" }, "to": { "node": "find_slot" }, "type": "BookingReq", "back": true },
+    { "id": "e5", "from": { "node": "look_again", "port": "take_it" }, "to": { "node": "book_appointment" }, "type": "SlotGrid" }
+  ]
+}
+```

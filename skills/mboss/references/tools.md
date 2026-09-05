@@ -6,6 +6,9 @@ to. Each description below is copied verbatim from the server's own
 `tools.manifest.json` — if the two ever disagree, the manifest is right and
 this file is stale.
 
+See references/conventions.md for why the compiler refuses some documents
+that validate — guards and scope, and the zone a schedule runs in.
+
 ### `workflow_get`
 
 Reads a workflow document, its revision and its diagnostics.
