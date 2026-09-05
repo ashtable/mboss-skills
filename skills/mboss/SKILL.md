@@ -62,11 +62,11 @@ You propose; mBoss validates; the human approves.
   client scoped to that block's transaction, which is what joins its writes to the run's. A
   handler that builds a `PrismaClient` of its own commits outside the run's transaction, and
   nothing catches that at build time.
-- Validation **refuses** a `transaction` whose handler dials out: a `fetch`, or a call into
-  one of Node's networking modules, written in the handler's own body is a `V16` error naming
-  the call and its line, and the apply fails on it. Work that calls a service is a `step`. The
-  check reads that one body and not what it calls, so silence about a helper of your own is
-  not permission. See references/conventions.md.
+- Validation **refuses** a `transaction` whose handler dials out: a `fetch`, or one of the
+  calls Node's networking modules use to open a connection, written in the handler's own body
+  is a `V16` error naming the call and its line, and the apply fails on it. Work that calls a
+  service is a `step`. The check reads that one body and not what it calls, so silence about a
+  helper of your own is not permission. See references/conventions.md.
 - `guard` skips a node when false, so the node produces nothing that run. Anything downstream
   that reads its output must carry the **same** guard and sit next to it in the chain: an
   input type that tolerates `undefined` does not satisfy it, and dropping the input silences

@@ -142,6 +142,25 @@ describe('the shipped skill', () => {
     expect(prose).toContain('Work that calls a service is a `step`');
   });
 
+  // What is refused is a closed list of the calls
+  // that open a connection, not the modules those
+  // calls live in. Told the module itself is
+  // refused, an agent moves a `net.isIP` or a
+  // `dns.getServers` out of the transaction to be
+  // safe — splitting a commit that had no reason to
+  // be split, and never hearing otherwise, because
+  // a call that is not on the list draws no
+  // diagnostic either way.
+  it('refuses the calls that dial out, not whole modules', () => {
+    // The claim runs over more than one line, and
+    // where it wraps is not what this is about.
+    const prose = body.replaceAll(/\s+/g, ' ');
+
+    expect(prose).toContain(
+      "one of the calls Node's networking modules use to open a connection",
+    );
+  });
+
   // The check reads one body and does not follow
   // what it calls. An agent told only that calls
   // out are caught would read a clean validation as
