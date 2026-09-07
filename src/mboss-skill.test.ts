@@ -176,6 +176,23 @@ describe('the shipped skill', () => {
     );
   });
 
+  // A run the person handed over arrives with its
+  // evidence already gathered, so reading the
+  // ledger again for that one is work already
+  // done. Step 6 has to say which case is which,
+  // or the tool gets called on every run and the
+  // attachment goes unread.
+  it('says the run evidence attachment is already assembled', () => {
+    // The claim runs over more than one line, and
+    // where it wraps is not what this is about.
+    const prose = body.replaceAll(/\s+/g, ' ');
+
+    expect(prose).toContain(
+      'mBoss run evidence attachment is already assembled from the ledger',
+    );
+    expect(prose).toContain('`project_debug` is for runs you were not handed.');
+  });
+
   it('points to the reference files', () => {
     expect(body).toContain('references/tools.md');
     expect(body).toContain('references/ir-examples.md');
@@ -291,6 +308,34 @@ describe('references/conventions.md', () => {
     expect(text).toContain('.mboss/conventions.md');
     expect(text).not.toContain('Promise<boolean>');
   });
+
+  /**
+   * The one rule about two arms that end at the
+   * same blocks, in the words the scaffold's own
+   * copy carries.
+   *
+   * This file can only restate it: nothing here
+   * nests mboss-core, so the sentence was copied
+   * by hand. The check that actually spans the two
+   * repositories runs where both are on disk, in
+   * the MCP server's skill sync.
+   */
+  const SHARED_BLOCKS =
+    'Two arms may share the blocks below them only when no block on ' +
+    'either arm binds a value between the fork and the first block they ' +
+    'both reach, and no arm rejoins later than that block.';
+
+  it('states the rule about shared blocks word for word', () => {
+    // Both copies are hand-wrapped, and to
+    // different widths, so the sentence is not
+    // contiguous bytes in either. The words are
+    // what the two have to agree on, and a
+    // rewording on either side should turn the
+    // other red.
+    const prose = text.replaceAll(/\s+/g, ' ');
+
+    expect(prose).toContain(SHARED_BLOCKS);
+  });
 });
 
 describe('references/ir-examples.md', () => {
@@ -338,8 +383,25 @@ describe('references/ir-examples.md', () => {
     expect(back.from).toEqual({ node: decision.id, port: 'again' });
   });
 
-  // These are copied out of mboss-core's fixtures by
-  // hand — this repo cannot see them — so the one
+  // The hero of the pattern library, and the one
+  // copy of it this repo carries. Its shape is
+  // what a person is shown when they start from a
+  // template, so a paste that lost a node or an
+  // edge would teach a document nobody runs.
+  it('embeds a refund_approval example that parses as a document', () => {
+    const ir = JSON.parse(documents[2]!) as {
+      name: string;
+      nodes: unknown[];
+      edges: unknown[];
+    };
+
+    expect(ir.name).toBe('refund_approval');
+    expect(ir.nodes).toHaveLength(8);
+    expect(ir.edges).toHaveLength(8);
+  });
+
+  // These are copied out of mboss-core by hand —
+  // this repo cannot see it — so the one
   // thing it can check for itself is that nothing was
   // dropped or half-pasted on the way over.
   it('embeds nothing but documents that parse', () => {

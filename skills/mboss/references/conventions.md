@@ -33,6 +33,33 @@ loop or an unguarded block between the two ends the group, and the
 compiler refuses with a message naming both blocks. Move them together,
 or move the work that came between them.
 
+## Two arms that end at the same blocks
+
+**Two arms may share the blocks below them only when no block on
+either arm binds a value between the fork and the first block they
+both reach, and no arm rejoins later than that block.**
+
+A shared block gets one name for the value it reads. An arm that
+produces something of its own before the two meet would leave that
+block reading one value down one route and a different one down the
+other, and there is no name that means both. An arm that comes back
+further down comes back to blocks the other arm has already been
+through, and running them a second time would do the work twice under
+a step name that is already taken.
+
+The second is always refused. The first is refused whenever the shared
+block says what it takes in — and where it says nothing, it compiles,
+and the block quietly reads the value from before the fork rather than
+the one the arm produced. Declaring both ends of every block is what
+turns that into a message instead of a surprise.
+
+The way out of either is the same: give each arm its own copy of the
+blocks after the fork, wired to the same handlers. The copies record
+different step names, so a run can still be read back to the arm it
+took. `refund_approval` in references/ir-examples.md is the share that
+is allowed: both arms arrive at the refund carrying the purchase they
+were handed at the fork, and neither binds anything of its own.
+
 ## Transactions and the calls that dial out
 
 A `transaction` runs its handler inside the run's own database

@@ -51,7 +51,9 @@ You propose; mBoss validates; the human approves.
 5. After approval and apply, `workflow_scaffold_step` each node whose handler is missing,
    implement the stubs in `lib/`, then `project_build` and `project_test`.
 6. For run/crash questions, `project_debug` reads the DBOS ledger (status, recovery
-   attempts, step timing) — the workflow state is rows in Postgres.
+   attempts, step timing) — the workflow state is rows in Postgres. An mBoss run
+   evidence attachment is already assembled from the ledger; `project_debug` is for
+   runs you were not handed.
 
 ## What things mean
 
