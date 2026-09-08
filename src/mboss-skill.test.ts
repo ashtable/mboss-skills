@@ -193,6 +193,26 @@ describe('the shipped skill', () => {
     expect(prose).toContain('`project_debug` is for runs you were not handed.');
   });
 
+  // A queue block is the one kind whose handler
+  // is handed something other than what the edge
+  // into the block carries. An agent that read
+  // the edge would write a handler taking the
+  // whole collection, and the mismatch surfaces
+  // as a type error in generated code rather than
+  // as anything about the drawing.
+  it('says what a queue block hands its handler', () => {
+    // The claim runs over more than one line, and
+    // where it wraps is not what this is about.
+    const prose = body.replaceAll(/\s+/g, ' ');
+
+    expect(prose).toContain(
+      'A `queue` block enqueues one workflow execution per item',
+    );
+    expect(prose).toContain(
+      'its handler takes one item and returns one result',
+    );
+  });
+
   it('points to the reference files', () => {
     expect(body).toContain('references/tools.md');
     expect(body).toContain('references/ir-examples.md');
@@ -336,6 +356,61 @@ describe('references/conventions.md', () => {
 
     expect(prose).toContain(SHARED_BLOCKS);
   });
+
+  /**
+   * And the sentence about a queue block's
+   * handler, carried here for the same reason and
+   * copied by hand the same way: an agent reads
+   * this file and writes the handler the project's
+   * own conventions describe.
+   */
+  const QUEUE_HANDLER =
+    "A queue block's handler takes one item of the collection and returns " +
+    "one result; the block's item type is its parameter type.";
+
+  it("states what a queue block's handler takes, word for word", () => {
+    const prose = text.replaceAll(/\s+/g, ' ');
+
+    expect(text).toContain('## Queues');
+    expect(prose).toContain(QUEUE_HANDLER);
+  });
+
+  // Partitioning is not a field an author turns
+  // on: setting any one of the per-partition
+  // limits is what turns it on, and two of the
+  // three refusals are about what that then
+  // commits the queue to.
+  it('says what partitioning a queue commits it to', () => {
+    // The claims run over more than one line, and
+    // where they wrap is not what this is about.
+    const prose = text.replaceAll(/\s+/g, ' ');
+
+    expect(prose).toContain('Any per-partition limit partitions the queue');
+    expect(prose).toContain('a partitioned queue cannot also deduplicate');
+  });
+
+  // Deduplication is the enqueue option a reader
+  // would guess wrong about. The colliding item is
+  // neither dropped nor refused: it comes back
+  // holding the first item's result, which is a
+  // wrong answer rather than a missing one.
+  it('says what a colliding item comes back with', () => {
+    const prose = text.replaceAll(/\s+/g, ' ');
+
+    expect(prose).toContain(
+      'joins the run already in flight rather than starting a second',
+    );
+  });
+
+  // Nothing regenerates `src/app/`, so a project
+  // made before queues existed has to be edited by
+  // hand, and this is the only place that says
+  // which two lines and which SDK.
+  it('says what an older project has to add by hand', () => {
+    expect(text).toContain("import { registerQueues } from './queues.js';");
+    expect(text).toContain('await registerQueues(queues);');
+    expect(text).toContain('4.27.6');
+  });
 });
 
 describe('references/ir-examples.md', () => {
@@ -398,6 +473,33 @@ describe('references/ir-examples.md', () => {
     expect(ir.name).toBe('refund_approval');
     expect(ir.nodes).toHaveLength(8);
     expect(ir.edges).toHaveLength(8);
+  });
+
+  // The one example whose config carries a policy
+  // rather than only a handler name, so it is what
+  // an agent copies a queue's limits and its
+  // deduplication key from. Asserted on the parsed
+  // document rather than on its place in the file,
+  // because a fourth block that parsed as anything
+  // else would still be a fourth block.
+  it('embeds a document_ingestion_queued example on a queue', () => {
+    const ir = JSON.parse(documents[3]!) as {
+      name: string;
+      nodes: {
+        kind: string;
+        config: { enqueue?: { deduplicationPath?: string } };
+      }[];
+      edges: unknown[];
+    };
+
+    expect(ir.name).toBe('document_ingestion_queued');
+    expect(ir.nodes).toHaveLength(6);
+    expect(ir.edges).toHaveLength(5);
+
+    const queues = ir.nodes.filter((node) => node.kind === 'queue');
+
+    expect(queues).toHaveLength(1);
+    expect(queues[0]!.config.enqueue?.deduplicationPath).toBe('documentId');
   });
 
   // These are copied out of mboss-core by hand —
