@@ -73,6 +73,12 @@ You propose; mBoss validates; the human approves.
   that reads its output must carry the **same** guard and sit next to it in the chain: an
   input type that tolerates `undefined` does not satisfy it, and dropping the input silences
   the check and fails the build instead. See references/conventions.md.
+- A `queue` block enqueues one workflow execution per item of the collection it names, so
+  each item is a run of its own, started under the queue's limits and recovered on its own:
+  its handler takes one item and returns one result, and the block collects the results in
+  the order the items were listed. So the block after a queue either declares no `in` or
+  declares the array, and a partitioned queue cannot also deduplicate. See
+  references/conventions.md.
 - Signed links (forms, artifacts) are minted by the runtime — never construct URLs yourself.
 
 See references/tools.md for the full tool reference and references/ir-examples.md for worked

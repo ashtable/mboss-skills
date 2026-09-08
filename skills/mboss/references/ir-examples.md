@@ -209,3 +209,79 @@ have changed anything.
   ]
 }
 ```
+
+## `document_ingestion_queued`
+
+An upload is downloaded, parsed into pages, and every page indexed on a
+queue. `index_pages` hands `indexPage` one page at a time, and each page
+is a workflow execution of its own that the queue's limits decide when
+to start: eight at once across the deployment, two per worker, a hundred
+a minute. `itemsPath` names the collection on the parsed document and
+`itemType` names one item of it, which is the handler's parameter type.
+The `finalize_document` block after it declares no `in`, because what it
+is handed is the array of results rather than one of them. Note what
+`deduplicationPath` is doing here: `documentId` is a value every page of
+one document shares, so a page offered while another page of the same
+document is still in flight joins that run and comes back with its
+result. Deduplicate on something each item has its own of — the page
+number, say — to index every page on its own. Copied verbatim from
+`mboss-core`'s pattern library
+(`src/patterns/library/document_ingestion_queued/document_ingestion_queued.workflow.json`),
+like `refund_approval` above, so a person can start a workflow from it.
+The rules a queue's limits and its enqueue keys have to hold together
+are in references/conventions.md.
+
+```json
+{
+  "$schema": "https://mboss.dev/schemas/workflow-v1.json",
+  "version": 1,
+  "revision": 1,
+  "name": "document_ingestion_queued",
+  "title": "Document ingestion on a queue",
+  "nodes": [
+    { "id": "document_uploaded", "kind": "trigger",
+      "title": "Document uploaded",
+      "config": { "mode": "event", "topic": "document.uploaded",
+        "idempotencyKeyPath": "documentId",
+        "requesterEmailPath": "requestedBy" },
+      "out": "DocumentUploaded" },
+    { "id": "download_pdf", "kind": "step", "title": "Download the file",
+      "handler": { "export": "downloadDocument" },
+      "in": "DocumentUploaded", "out": "Pdf", "config": {} },
+    { "id": "parse_pages", "kind": "codeStep", "title": "Parse the pages",
+      "handler": { "export": "parsePdf" },
+      "in": "Pdf", "out": "ParsedPdf", "config": {} },
+    { "id": "index_pages", "kind": "queue", "title": "Index each page",
+      "handler": { "export": "indexPage" },
+      "in": "ParsedPdf", "out": "IndexResult",
+      "config": {
+        "itemsPath": "pages",
+        "itemType": "Page",
+        "queue": { "name": "document-index", "globalConcurrency": 8,
+          "workerConcurrency": 2,
+          "rateLimit": { "limitPerPeriod": 100, "periodSec": 60 } },
+        "enqueue": { "deduplicationPath": "documentId" } } },
+    { "id": "finalize_document", "kind": "transaction",
+      "title": "Mark it ingested",
+      "handler": { "export": "markIngested" },
+      "out": "IngestedDocument", "config": {} },
+    { "id": "notify_caller", "kind": "emailSend", "title": "Tell the caller",
+      "config": { "to": "requestingUser",
+        "subject": "Your document is indexed",
+        "bodyMarkdown": "Every page of the document you uploaded has been indexed, and it is ready to search.",
+        "attach": { "type": "none" } } }
+  ],
+  "edges": [
+    { "id": "e1", "from": { "node": "document_uploaded", "port": "out" },
+      "to": { "node": "download_pdf" }, "type": "DocumentUploaded" },
+    { "id": "e2", "from": { "node": "download_pdf", "port": "out" },
+      "to": { "node": "parse_pages" }, "type": "Pdf" },
+    { "id": "e3", "from": { "node": "parse_pages", "port": "out" },
+      "to": { "node": "index_pages" }, "type": "ParsedPdf" },
+    { "id": "e4", "from": { "node": "index_pages", "port": "out" },
+      "to": { "node": "finalize_document" }, "type": "IndexResult" },
+    { "id": "e5", "from": { "node": "finalize_document", "port": "out" },
+      "to": { "node": "notify_caller" }, "type": "IngestedDocument" }
+  ]
+}
+```

@@ -154,3 +154,62 @@ the document, so it lives with your code: the project's own
 one rule 4 sends you to before you write anything in `lib/` — has a
 section on it. Read that one rather than assuming; it is written once
 per project and is the project's from then on.
+
+## Queues
+
+A `queue` block runs its handler once per item of a collection, and each
+item is a workflow execution of its own: started under the queue's
+limits, recorded on its own row, and recovered on its own if the process
+it was running in went away. A queue block's handler takes one item of
+the collection and returns one result; the block's item type is its
+parameter type. The block reads the collection off its input at
+`itemsPath` and collects the results in the order the items were listed,
+so a block after a queue either declares no `in` or declares the array —
+one item's type is not what it is handed. `document_ingestion_queued` in
+references/ir-examples.md is the whole shape.
+
+**Any per-partition limit partitions the queue.** There is no separate
+field that turns partitioning on: setting `partitionConcurrency`,
+`partitionWorkerConcurrency` or `partitionRateLimit` is what turns it
+on, and the three things `V17` refuses all follow from that.
+
+A partitioned queue needs `enqueue.partitionPath`, because a row
+enqueued with no partition key is never dispatched — it sits `ENQUEUED`
+with no error and nothing says why — so the document is refused before a
+run can wait for ever. Naming a partition path on a queue that has no
+per-partition limit is the same mistake read from the other end: the key
+would be ignored, so that is refused too. And a partitioned queue cannot
+also deduplicate: DBOS refuses that combination mid-run with the item in
+hand, which is a failed run rather than a thing to fix, so validation
+refuses the document first.
+
+**Under deduplication a colliding item comes back with the first one's
+result.** `enqueue.deduplicationPath` reads a key off each item, and an
+item whose key a run already in flight holds joins the run already in
+flight rather than starting a second — the block's list holds that run's
+result in the colliding item's place. That is what deduplicating is for,
+and it is a wrong answer rather than a missing one when the path names
+something a whole batch shares. Deduplicate on something each item has
+its own of.
+
+**A project made before queues existed has two lines to add and a floor
+to meet.** `src/app/` is the project's own — mBoss wrote it when the
+project was created and nothing regenerates it — so the boot code has to
+be edited by hand. In `src/app/main.ts`:
+
+```ts
+import { registerQueues } from './queues.js';
+
+await DBOS.launch();
+await registerQueues(queues);
+```
+
+`queues` comes from `../workflows/index.js`, beside `schedules` and
+`workflows`. Registering has to follow `DBOS.launch()`, which owns the
+connection it writes through, and precede the schedules, because a
+scheduled run may enqueue the moment its schedule is applied. It happens
+on every boot rather than once, because a queue's configuration lives in
+the system database and the row belongs to the deployment that wrote it.
+The module the import names, `src/app/queues.ts`, arrives with a project
+created today; one older than queues has to take that file too. All of
+it needs `@dbos-inc/dbos-sdk` at `^4.27.6` or later.
